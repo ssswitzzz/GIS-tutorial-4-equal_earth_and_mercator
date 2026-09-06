@@ -1,0 +1,75 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Rendered Video Outputs & Caches (Skill Hygiene: Heavy Media)
+media/
+out/
+_out/
+*.mp4
+*.mov
+*.mkv
+*.webm
+
+# Raw / Final Voiceover & Audio Directories (Skill Hygiene)
+#1 project/
+#1视频配音/
+bgms/
+*.mp3
+*.wav
+*.aac
+*.flac
+*.m4a
+
+# Subtitle Files & Narrative Documents (Skill Hygiene)
+*.srt
+*.vtt
+*.txt
+*.docx
+*.doc
+
+# Screenshots & Temporary Image Dumps (Skill Hygiene)
+PixPin_*.png
+*.png
+*.jpg
+*.jpeg
+
+# Operating System & Editor Files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
