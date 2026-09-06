@@ -1,0 +1,3 @@
+.intro-stage, .intro-stage * { box-sizing: border-box; letter-spacing: 0; }
+.intro-stage { font-family: 'Source Han Serif CN SemiBold', serif; font-weight: 700; }
+.intro-stage svg text { font-family: 'Source Han Serif CN SemiBold', serif; font-weight: 700; }

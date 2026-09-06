@@ -5,230 +5,141 @@ import {
   spring,
   useCurrentFrame,
   useVideoConfig,
+  Easing,
 } from "remotion";
 import { PaperBackground } from "./components/PaperBackground";
+import { TopHeader, SectionTitle } from "./components/SectionHeader";
 import { ActTracker } from "./components/ActTracker";
-import { SectionHeader } from "./components/SectionHeader";
+import { InteractiveSphereMap } from "./components/InteractiveSphereMap";
 import { CurvatureComparison } from "./components/CurvatureComparison";
 import { OrangePeelDiagram } from "./components/OrangePeelDiagram";
 import { TissotTrilemma } from "./components/TissotTrilemma";
-import { KaTeXFormula } from "./components/KaTeXFormula";
+import { PhilosophyBanner } from "./components/PhilosophyBanner";
+
+const clamp = {
+  extrapolateLeft: "clamp" as const,
+  extrapolateRight: "clamp" as const,
+};
+
+const ease = Easing.bezier(0.22, 1, 0.36, 1);
+
+// S-Curve smooth cross-fade helper matching reference project
+const smoothFade = (frame: number, start: number, end: number, fadeIn = 24, fadeOut = 24) => {
+  const p = interpolate(frame, [start, start + fadeIn, end - fadeOut, end], [0, 1, 1, 0], clamp);
+  return ease(p);
+};
 
 export const GaussTheoremaScene: React.FC = () => {
   const frame = useCurrentFrame();
-  const { fps, width } = useVideoConfig();
+  const { fps } = useVideoConfig();
 
-  // Responsive scale relative to 1920x1080
-  const scale = width / 1920;
-
-  // Act Timing boundaries (60fps):
-  // Act 1: 0 - 900 (0s - 15s)
-  // Act 2: 900 - 2700 (15s - 45s)
-  // Act 3: 2700 - 3900 (45s - 65s)
-  // Act 4: 3900 - 6600 (65s - 110s)
+  // Act Timing boundaries (60fps, 6600 frames total = 110s):
+  // Act 1: 0 - 1500 (0s - 25s)
+  // Act 2: 1500 - 3300 (25s - 55s)
+  // Act 3: 3300 - 4800 (55s - 80s)
+  // Act 4: 4800 - 6600 (80s - 110s)
   let currentAct = 1;
-  if (frame >= 3900) {
+  let actTitle = "01. 完美假想与测地线破灭";
+  if (frame >= 4800) {
     currentAct = 4;
-  } else if (frame >= 2700) {
+    actTitle = "04. 制图师三大抉择与主动偏见";
+  } else if (frame >= 3300) {
     currentAct = 3;
-  } else if (frame >= 900) {
+    actTitle = "03. 橘皮悖论与物理不可压平";
+  } else if (frame >= 1500) {
     currentAct = 2;
+    actTitle = "02. 高斯绝妙定理与曲率内蕴";
   }
 
-  // Crossfade transition window helper
-  const getActFade = (startFrame: number, endFrame: number) => {
-    const fadeIn = interpolate(frame, [startFrame, startFrame + 25], [0, 1], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    });
-    const fadeOut = interpolate(frame, [endFrame - 25, endFrame], [1, 0], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    });
-    return Math.min(fadeIn, fadeOut);
-  };
+  // Cross-fades between the 4 Acts
+  const act1Fade = smoothFade(frame, 0, 1500, 20, 30);
+  const act2Fade = smoothFade(frame, 1470, 3300, 30, 30);
+  const act3Fade = smoothFade(frame, 3270, 4800, 30, 30);
+  const act4Fade = smoothFade(frame, 4770, 6600, 30, 20);
+
+  // Underline animations for titles
+  const u1 = interpolate(frame, [20, 80], [0, 1], { ...clamp, easing: ease });
+  const u2 = interpolate(frame, [1520, 1580], [0, 1], { ...clamp, easing: ease });
+  const u3 = interpolate(frame, [3320, 3380], [0, 1], { ...clamp, easing: ease });
+  const u4 = interpolate(frame, [4820, 4880], [0, 1], { ...clamp, easing: ease });
+
+  // Act 4 Climax: Philosophy Banner reveals from frame 5800 onwards
+  const bannerProgress = interpolate(frame, [5800, 5860], [0, 1], { ...clamp, easing: ease });
+  const trilemmaFade = interpolate(frame, [5780, 5830], [1, 0.15], clamp);
 
   return (
-    <PaperBackground>
-      {/* 1920x1080 Scaled Viewport Container */}
-      <div
-        style={{
-          width: 1920,
-          height: 1080,
-          transform: `scale(${scale})`,
-          transformOrigin: "top left",
-          position: "absolute",
-          top: 0,
-          left: 0,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          boxSizing: "border-box",
-          paddingTop: "60px",
-        }}
-      >
-        {/* ACT 1: 完美地图的假想 (0 - 900) */}
-        {frame < 920 && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              paddingTop: "70px",
-              opacity: getActFade(0, 900),
-            }}
-          >
-            <SectionHeader
-              badge="第一幕 · 完美地图的悖论"
-              badgeColor="#1D4ED8"
-              badgeBg="#EFF6FF"
-              title="世界上不存在完美的平面地图"
-              subtitle="所谓完美，即任意两点间的距离与现实分毫不差地等比例缩放"
-            />
+    <AbsoluteFill style={{ overflow: "hidden", color: "#29342f" }}>
+      {/* Dynamic drifting background with topography contours */}
+      <PaperBackground tone={frame >= 1500 && frame < 4800 ? "warm" : "light"} />
 
-            {/* Act 1 Visual: Global Isometry metric breakdown */}
-            <div
-              style={{
-                width: "1360px",
-                backgroundColor: "rgba(255, 255, 255, 0.95)",
-                borderRadius: "24px",
-                border: "2px solid #E2E8F0",
-                boxShadow: "0 25px 45px -12px rgba(0, 0, 0, 0.05)",
-                padding: "44px 54px",
-                display: "flex",
-                gap: "48px",
-                alignItems: "center",
-              }}
-            >
-              <svg width="380" height="280" viewBox="0 0 380 280">
-                {/* 3D Wireframe sphere */}
-                <circle cx="140" cy="140" r="95" fill="#F8FAFC" stroke="#1D4ED8" strokeWidth="2.5" />
-                <ellipse cx="140" cy="140" rx="95" ry="30" fill="none" stroke="#93C5FD" strokeWidth="1.5" strokeDasharray="4 4" />
-                <path d="M 140 45 A 95 95 0 0 1 140 235" fill="none" stroke="#93C5FD" strokeWidth="1.5" strokeDasharray="4 4" />
-                {/* Points A and B on sphere */}
-                <circle cx="95" cy="115" r="7" fill="#BE123C" />
-                <text x="75" y="110" fill="#BE123C" fontSize="20" fontWeight="bold">A</text>
-                <circle cx="190" cy="170" r="7" fill="#BE123C" />
-                <text x="205" y="175" fill="#BE123C" fontSize="20" fontWeight="bold">B</text>
-                {/* Geodesic Arc */}
-                <path d="M 95 115 Q 145 160 190 170" fill="none" stroke="#EA580C" strokeWidth="3" />
-                <text x="145" y="135" fill="#EA580C" fontSize="18" fontWeight="bold">d(A, B)</text>
+      {/* Top Status Navigation Header */}
+      <TopHeader currentActTitle={actTitle} />
 
-                {/* Broken arrow pointing to flat plane */}
-                <path d="M 255 140 L 340 140" stroke="#BE123C" strokeWidth="2.5" strokeDasharray="5 5" />
-                <text x="295" y="125" textAnchor="middle" fill="#BE123C" fontSize="26" fontWeight="bold">↛</text>
-                <text x="295" y="170" textAnchor="middle" fill="#BE123C" fontSize="18" fontWeight="bold">无法等距</text>
-              </svg>
+      {/* ==================== ACT 1: 完美假想与测地线破灭 (0 - 1500) ==================== */}
+      {act1Fade > 0 && (
+        <div style={{ position: "absolute", inset: 0, opacity: act1Fade, pointerEvents: "none" }}>
+          <SectionTitle
+            eyebrow="第一幕 · 完美地图的假想"
+            title="世界上根本不存在一张完美的平面地图"
+            subtitle="所谓“完美”，本质上是地图上任意两点之间的距离，都必须和现实世界分毫不差地成比例。"
+            color="#315f6d"
+            underlineProgress={u1}
+          />
+          <InteractiveSphereMap sceneProgress={act1Fade} />
+        </div>
+      )}
 
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "20px" }}>
-                <div style={{ fontSize: "36px", fontWeight: 800, color: "#0F172A", whiteSpace: "nowrap" }}>
-                  数学上的“全局等距映射”假想
-                </div>
+      {/* ==================== ACT 2: 高斯绝妙定理与曲率内蕴 (1500 - 3300) ==================== */}
+      {act2Fade > 0 && (
+        <div style={{ position: "absolute", inset: 0, opacity: act2Fade, pointerEvents: "none" }}>
+          <SectionTitle
+            eyebrow="第二幕 · 高斯绝妙定理 (THEOREMA EGREGIUM)"
+            title="两百年前，高斯焊死了这扇大门"
+            subtitle="高斯用微分几何证明：高斯曲率是内蕴的。球面曲率 K > 0，而平坦纸面曲率为 0，球壳绝不可能无拉伸挤压贴合到平面。"
+            color="#a77748"
+            underlineProgress={u2}
+          />
+          <CurvatureComparison />
+        </div>
+      )}
 
-                <div
-                  style={{
-                    padding: "16px 24px",
-                    backgroundColor: "#EFF6FF",
-                    borderRadius: "14px",
-                    border: "1.5px solid #DBEAFE",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  <KaTeXFormula
-                    math="f: \mathbb{S}^2 \to \mathbb{R}^2 \quad \text{满足} \quad d_{\mathbb{R}^2}(f(A), f(B)) \equiv \lambda \cdot d_{\mathbb{S}^2}(A, B)"
-                    fontSize={25}
-                    color="#1D4ED8"
-                  />
-                </div>
+      {/* ==================== ACT 3: 橘皮悖论与物理不可压平 (3300 - 4800) ==================== */}
+      {act3Fade > 0 && (
+        <div style={{ position: "absolute", inset: 0, opacity: act3Fade, pointerEvents: "none" }}>
+          <SectionTitle
+            eyebrow="第三幕 · 橘皮物理直觉"
+            title="剥开橘子皮：展平必撕裂，保全必起皱"
+            subtitle="在不撕破、不揉皱的前提下，物理上绝对不可能把这个橘子皮完整压平在桌面上。那制图师该怎么办？"
+            color="#c2410c"
+            underlineProgress={u3}
+          />
+          <OrangePeelDiagram />
+        </div>
+      )}
 
-                <div style={{ fontSize: "30px", lineHeight: 1.45, color: "#475569" }}>
-                  我们直觉中渴望的“完美地图”，必须让图上每一处距离都分毫不差成比例。然而这扇大门，在数学上早已被彻底封死。
-                </div>
-              </div>
-            </div>
+      {/* ==================== ACT 4: 制图师三大抉择与主动偏见 (4800 - 6600) ==================== */}
+      {act4Fade > 0 && (
+        <div style={{ position: "absolute", inset: 0, opacity: act4Fade, pointerEvents: "none" }}>
+          <SectionTitle
+            eyebrow="第四幕 · 制图师的主动偏见"
+            title="三大抉择：保形状？保面积？保距离？"
+            subtitle="既然地球注定要变形，制图师便只能在等角、等积、等距间权衡取舍。"
+            color="#4f745d"
+            underlineProgress={u4}
+          />
+
+          {/* Trilemma Cards */}
+          <div style={{ opacity: trilemmaFade, transition: "opacity 0.5s ease" }}>
+            <TissotTrilemma />
           </div>
-        )}
 
-        {/* ACT 2: 高斯绝妙定理 (900 - 2700) */}
-        {frame >= 880 && frame < 2720 && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              paddingTop: "60px",
-              opacity: getActFade(900, 2700),
-            }}
-          >
-            <SectionHeader
-              badge="第二幕 · 高斯绝妙定理"
-              badgeColor="#BE123C"
-              badgeBg="#FFF1F2"
-              title="两百年前，高斯焊死了这扇大门"
-              subtitle="微分几何证明：高斯曲率是曲面的内蕴性质，绝不可能在无拉伸下贴合到平面"
-            />
+          {/* Climax Philosophy Banner */}
+          {bannerProgress > 0 && <PhilosophyBanner progress={bannerProgress} />}
+        </div>
+      )}
 
-            <CurvatureComparison progressFrame={frame - 900} />
-          </div>
-        )}
-
-        {/* ACT 3: 橘子皮的困境 (2700 - 3900) */}
-        {frame >= 2680 && frame < 3920 && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              paddingTop: "60px",
-              opacity: getActFade(2700, 3900),
-            }}
-          >
-            <SectionHeader
-              badge="第三幕 · 橘子皮物理直觉"
-              badgeColor="#EA580C"
-              badgeBg="#FFF7ED"
-              title="剥开橘子皮：展平必撕裂，保全必起皱"
-              subtitle="不撕破、不揉皱，在物理上绝对不可能把完整的球面皮压平在桌面上"
-            />
-
-            <OrangePeelDiagram progressFrame={frame - 2700} />
-          </div>
-        )}
-
-        {/* ACT 4: 三岔路口与主动偏见 (3900 - 6600) */}
-        {frame >= 3880 && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              paddingTop: "50px",
-              opacity: getActFade(3900, 6600),
-            }}
-          >
-            <SectionHeader
-              badge="第四幕 · 制图师的主动偏见"
-              badgeColor="#059669"
-              badgeBg="#ECFDF5"
-              title="三大抉择：保形状？保面积？保距离？"
-              subtitle="每一张地图的诞生，都是制图师权衡利弊后主动选择的偏见"
-            />
-
-            <TissotTrilemma progressFrame={frame - 3900} />
-          </div>
-        )}
-
-        {/* Persistent Clean Bottom Act Tracker */}
-        <ActTracker currentAct={currentAct} />
-      </div>
-    </PaperBackground>
+      {/* Bottom Act Tracker */}
+      <ActTracker currentAct={currentAct} />
+    </AbsoluteFill>
   );
 };

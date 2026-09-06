@@ -1,58 +1,128 @@
-import React from "react";
-import {Audio, staticFile, AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig} from "remotion";
-import {geoEqualEarth, geoMercator, geoPath} from "d3-geo";
-import worldRaw from "./data/cas_world_land.json";
-import africaRaw from "./data/cas_africa.json";
-import greenlandRaw from "./data/cas_greenland.json";
+import React, {useEffect, useState} from 'react';
+import {AbsoluteFill, Audio, cancelRender, continueRender, delayRender, Easing, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
+import {PaperBackground} from './components/PaperBackground';
+import {KaTeXFormula} from './components/KaTeXFormula';
+import {africaPlate, gridPath, islandPlate, islandPositions, mapPath, transportedGreenland} from './intro/geography';
+import {getTimestamps} from './intro/timing';
+import './intro/intro.css';
 
-const SERIF = "Source Han Serif CN, Source Han Serif SC, SimSun, serif";
-const INK = "#243833"; const PAPER = "#f6f1e7"; const BLUE = "#3c7280"; const CLAY = "#b45b45";
-const clamp = {extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const};
-const t = {vote: 0, projection: 8, decolonize: 16, question: 21, map: 25.05, drag: 33, count: 39, ending: 43, end: 52.118};
-const f = (seconds: number, fps: number) => Math.round(seconds * fps);
-type Point = [number, number];
-const polygons = (raw: Point[][]) => ({type: "MultiPolygon" as const, coordinates: raw.map((p) => [p])});
-const world = polygons(worldRaw as Point[][]); const africa = polygons(africaRaw as Point[][]); const greenland = polygons(greenlandRaw as Point[][]);
-const makePath = (projection: any, geometry: any) => geoPath(projection)(geometry) ?? "";
-const mercatorPath = makePath(geoMercator().fitExtent([[70, 85], [1850, 910]], world), world);
-const equalEarthPath = makePath(geoEqualEarth().fitExtent([[70, 105], [1850, 900]], world), world);
-const africaMercator = makePath(geoMercator().fitExtent([[70, 85], [1850, 910]], world), africa);
-const greenMercator = makePath(geoMercator().fitExtent([[70, 85], [1850, 910]], world), greenland);
-
-const FadeText: React.FC<{children: React.ReactNode; from: number; to: number; style?: React.CSSProperties}> = ({children, from, to, style}) => {
-  const {fps} = useVideoConfig(); const frame = useCurrentFrame();
-  const opacity = interpolate(frame, [f(from, fps), f(from + .5, fps), f(to - .45, fps), f(to, fps)], [0, 1, 1, 0], clamp);
-  const y = interpolate(frame, [f(from, fps), f(from + .7, fps)], [22, 0], clamp);
-  return <div style={{opacity, transform: `translateY(${y}px)`, ...style}}>{children}</div>;
+const C = {ink: '#263e3d', muted: '#627573', green: '#477f68', blue: '#427d99', red: '#bf594c', land: '#d9e2da', white: '#fffdf8'};
+const clamp = {extrapolateLeft: 'clamp' as const, extrapolateRight: 'clamp' as const};
+const silk = Easing.bezier(.16, 1, .3, 1);
+const mix = (a: number, b: number, t: number) => a + (b - a) * t;
+const Headline: React.FC<{start: number; end: number; eyebrow?: string; children: React.ReactNode; color?: string; top?: number; size?: number}> = ({start, end, eyebrow, children, color = C.ink, top = 76, size = 88}) => {
+  const frame = useCurrentFrame(); const {fps} = useVideoConfig();
+  const enter = spring({frame: frame - start, fps, config: {damping: 18, stiffness: 55}, durationInFrames: Math.round(fps * .9)});
+  const exit = interpolate(frame, [end - fps * .4, end], [0, 1], clamp);
+  if (frame < start || frame >= end) return null;
+  return <div style={{position: 'absolute', left: 112, top, color, opacity: Math.min(enter * 2, 1) * (1 - exit), transform: `translateY(${(1 - enter) * 44 - exit * 16}px)`, whiteSpace: 'nowrap'}}>
+    {eyebrow && <div style={{fontSize: 30, color: C.muted, marginBottom: 15}}>{eyebrow}</div>}
+    <div style={{fontSize: size, lineHeight: 1.18}}>{children}</div>
+  </div>;
 };
-const MapLayer: React.FC<{path: string; opacity: number; fill?: string; stroke?: string; strokeWidth?: number}> = ({path, opacity, fill = "#d8e5d5", stroke = "#47726b", strokeWidth = 1.4}) => <svg viewBox="0 0 1920 1080" style={{position: "absolute", inset: 0, width: "100%", height: "100%", opacity}}><path d={path} fill={fill} stroke={stroke} strokeWidth={strokeWidth} strokeLinejoin="round"/></svg>;
-const Grid: React.FC = () => <svg viewBox="0 0 1920 1080" style={{position: "absolute", inset: 0, opacity: .28}}><defs><pattern id="grid" width="120" height="120" patternUnits="userSpaceOnUse"><path d="M120 0H0V120" fill="none" stroke="#9bb3aa" strokeWidth="1"/><circle cx="0" cy="0" r="2" fill="#78978c"/></pattern></defs><rect width="1920" height="1080" fill="url(#grid)"/></svg>;
 
 export const MainScene: React.FC = () => {
-  const frame = useCurrentFrame(); const {fps, width} = useVideoConfig(); const scale = width / 1920; const sec = frame / fps;
-  const mapIn = interpolate(frame, [f(t.map, fps), f(27, fps)], [0, 1], clamp);
-  const drag = interpolate(frame, [f(t.drag, fps), f(37, fps)], [0, 1], {...clamp, easing: Easing.bezier(.16, 1, .3, 1)});
-  const count = interpolate(frame, [f(t.count, fps), f(42, fps)], [0, 14], clamp); const endSpring = spring({frame: frame - f(t.ending, fps), fps, config: {damping: 18, stiffness: 55}}); const ending = frame < f(t.ending, fps) ? 0 : endSpring;
-  const mapShift = interpolate(frame, [f(t.map, fps), f(t.drag, fps)], [0, -90], clamp); const greenlandX = interpolate(drag, [0, 1], [0, -650]); const greenlandY = interpolate(drag, [0, 1], [0, 245]); const greenlandScale = interpolate(drag, [0, 1], [1, .27]);
-  const lineProgress = interpolate(frame, [f(t.drag, fps), f(36.5, fps)], [0, 1], clamp); const lineX = interpolate(lineProgress, [0, 1], [1450, 820]); const lineY = interpolate(lineProgress, [0, 1], [250, 625]);
-  const voteProgress = interpolate(frame, [f(.7, fps), f(5.8, fps)], [0, 1], clamp); const voteNo = voteProgress; const worldOpacity = interpolate(frame, [f(5, fps), f(8, fps)], [0, 1], clamp); const mercOpacity = interpolate(frame, [f(8, fps), f(14, fps)], [1, 0], clamp); const equalOpacity = interpolate(frame, [f(8, fps), f(14, fps)], [0, 1], clamp); const pulse = 1 + Math.sin(frame / 16) * .012;
-  return <AbsoluteFill style={{backgroundColor: PAPER, color: INK, fontFamily: SERIF, overflow: "hidden"}}><Audio src={staticFile("audio/intro.wav")} volume={0.9}/><div style={{width: 1920, height: 1080, transform: `scale(${scale})`, transformOrigin: "top left", position: "absolute", overflow: "hidden"}}>
-    <Grid/><div style={{position: "absolute", inset: 0, background: "radial-gradient(circle at 74% 35%, rgba(255,255,255,.82), transparent 48%)"}}/>
-    <FadeText from={0} to={8.5} style={{position: "absolute", left: 112, top: 100, zIndex: 5}}><div style={{fontSize: 32, color: CLAY, fontWeight: 700}}>联合国大会 · 表决现场</div><div style={{fontSize: 88, lineHeight: 1.05, fontWeight: 700, marginTop: 18}}>一张地图，<br/>为什么会引发投票？</div></FadeText>
-    <FadeText from={1.3} to={8.5} style={{position: "absolute", right: 130, top: 132, textAlign: "right", zIndex: 5}}><div style={{fontSize: 156, lineHeight: .9, color: BLUE, fontWeight: 700}}>164</div><div style={{fontSize: 34, marginTop: 10}}>赞成</div><div style={{fontSize: 94, lineHeight: .9, color: CLAY, fontWeight: 700, marginTop: 24}}>1</div><div style={{fontSize: 34, marginTop: 10}}>反对</div></FadeText>
-    <div style={{position: "absolute", left: 110, right: 110, bottom: 108, height: 12, background: "#d5dfd9", opacity: voteNo}}><div style={{width: `${voteProgress * 91}%`, height: "100%", background: BLUE}}/><div style={{position: "absolute", right: 0, top: 0, width: `${voteProgress * 9}%`, height: "100%", background: CLAY}}/></div>
-    <div style={{position: "absolute", inset: 0, opacity: worldOpacity, transform: `translateY(${mapShift}px) scale(${pulse})`}}><MapLayer path={mercatorPath} opacity={mercOpacity} fill="#d5e2d5"/><MapLayer path={equalEarthPath} opacity={equalOpacity} fill="#d5e2d5" stroke="#47726b"/></div>
-    <FadeText from={7.4} to={16.5} style={{position: "absolute", left: 118, top: 100, zIndex: 4}}><div style={{fontSize: 31, color: BLUE, fontWeight: 700}}>2018 年 · 新的世界观</div><div style={{fontSize: 86, lineHeight: 1.05, marginTop: 14, fontWeight: 700}}>平等地球</div><div style={{fontSize: 36, marginTop: 15, color: "#557067"}}>面积真实，轮廓仍然优雅</div></FadeText>
-    <FadeText from={14.5} to={22} style={{position: "absolute", right: 120, top: 135, width: 600, textAlign: "right", zIndex: 4}}><div style={{fontSize: 67, fontWeight: 700, lineHeight: 1.15}}>地图也有<br/><span style={{color: CLAY}}>立场</span></div><div style={{fontSize: 34, marginTop: 22}}>去殖民化，不只是换一张图</div></FadeText>
-    <FadeText from={20.5} to={27} style={{position: "absolute", left: 118, bottom: 112, zIndex: 4}}><div style={{fontSize: 56, fontWeight: 700}}>为什么换张地图，会掀起波澜？</div></FadeText>
-    <div style={{position: "absolute", inset: 0, opacity: mapIn, transform: `translateY(${interpolate(mapIn, [0, 1], [70, 0])}px)`}}><MapLayer path={africaMercator} opacity={1} fill="#7ba788" stroke="#47726b" strokeWidth={2}/><MapLayer path={greenMercator} opacity={1} fill="#c97b63" stroke="#8d4f40" strokeWidth={2}/></div>
-    <FadeText from={24.6} to={34} style={{position: "absolute", left: 118, top: 88, zIndex: 6}}><div style={{fontSize: 31, color: "#557067", fontWeight: 700}}>熟悉的世界地图</div><div style={{fontSize: 72, fontWeight: 700, marginTop: 12}}>格陵兰岛 ≈ 非洲？</div></FadeText>
-    <div style={{position: "absolute", left: 0, top: 0, width: 1920, height: 1080, opacity: drag, transform: `translate(${greenlandX}px, ${greenlandY}px) scale(${greenlandScale})`, transformOrigin: "1450px 250px"}}><MapLayer path={greenMercator} opacity={1} fill="#c97b63" stroke="#8d4f40" strokeWidth={3}/></div>
-    <svg viewBox="0 0 1920 1080" style={{position: "absolute", inset: 0, opacity: lineProgress}}><path d={`M1450 250 C1320 320 ${lineX + 240} ${lineY - 90} ${lineX} ${lineY}`} fill="none" stroke={CLAY} strokeWidth="4" strokeDasharray="12 13"/><circle cx={lineX} cy={lineY} r="11" fill={CLAY}/></svg>
-    <FadeText from={32.5} to={40.5} style={{position: "absolute", right: 112, top: 165, zIndex: 8, textAlign: "right"}}><div style={{fontSize: 38, color: CLAY, fontWeight: 700}}>拖到真实的位置</div><div style={{fontSize: 118, lineHeight: .95, marginTop: 12, fontWeight: 700, color: INK}}>14 个</div><div style={{fontSize: 45, marginTop: 14}}>格陵兰岛，才装得下非洲</div></FadeText>
-    <div style={{position: "absolute", left: 830, top: 590, display: "flex", gap: 22, opacity: interpolate(frame, [f(38.5, fps), f(42, fps)], [0, 1], clamp), transform: `scale(${interpolate(frame, [f(38.5, fps), f(42, fps)], [.82, 1], clamp)})`}}>{Array.from({length: 14}).map((_, i) => <div key={i} style={{width: 44, height: 38, borderRadius: "50% 50% 45% 45%", background: CLAY, opacity: i < Math.floor(count) ? 1 : .22, transform: `translateY(${Math.sin(i * 1.7) * 7}px)`}}/>)}</div>
-    <FadeText from={38.7} to={44.3} style={{position: "absolute", left: 118, bottom: 112, zIndex: 8}}><div style={{fontSize: 32, color: BLUE, fontWeight: 700}}>这就是我们从小见过的</div><div style={{fontSize: 80, fontWeight: 700, marginTop: 10}}>墨卡托投影</div></FadeText>
-    <div style={{position: "absolute", inset: 0, background: PAPER, opacity: interpolate(ending, [0, 1], [1, 0], clamp), zIndex: 10}}/><div style={{position: "absolute", inset: 0, zIndex: 11, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", opacity: ending, transform: `translateY(${interpolate(ending, [0, 1], [34, 0], clamp)}px)`}}><div style={{fontSize: 37, color: CLAY, fontWeight: 700}}>一个问题，留到下一幕</div><div style={{fontSize: 92, fontWeight: 700, marginTop: 22}}>墨卡托，真的在“骗”我们吗？</div><div style={{marginTop: 34, fontSize: 34, color: "#557067"}}>还是说，这口锅不该由它来背？</div></div>
-    <div style={{position: "absolute", left: 110, right: 110, bottom: 43, height: 3, background: "#cdd8d0", zIndex: 20}}><div style={{height: "100%", width: `${Math.min(sec / t.end, 1) * 100}%`, background: CLAY}}/></div><div style={{position: "absolute", bottom: 62, left: 110, fontSize: 30, color: "#557067", zIndex: 20}}>平等地球 · 开场</div>
-  </div></AbsoluteFill>;
+  const frame = useCurrentFrame(); const {fps, width} = useVideoConfig(); const t = getTimestamps(fps);
+  const [fontHandle] = useState(() => delayRender('Loading the local Chinese serif font'));
+  useEffect(() => {
+    const font = new FontFace('Source Han Serif CN SemiBold', `url("${staticFile('fonts/SourceHanSerifCN-SemiBold.otf')}")`, {weight: '700'});
+    font.load().then(loaded => {document.fonts.add(loaded); continueRender(fontHandle);}).catch(cancelRender);
+  }, [fontHandle]);
+  const progress = (start: number, end: number) => interpolate(frame, [start, end], [0, 1], {...clamp, easing: silk});
+  const linear = (start: number, end: number) => interpolate(frame, [start, end], [0, 1], clamp);
+  const fade = (start: number, end: number, duration = .5) => progress(start, start + fps * duration) * (1 - progress(end - fps * duration, end));
+  const morph = progress(t.morph, t.equalEarth) * (1 - progress(t.familiarMap, t.familiarMap + fps * 1.2)) + progress(t.questionMercator, t.end) * .7;
+  const mapEnter = progress(t.voteExit, t.projection + fps * 1.1);
+  const africaFocus = progress(t.africa, t.africa + fps * 1.4) * (1 - progress(t.familiarMap, t.familiarMap + fps));
+  const detail = progress(t.drag, t.drag + fps * 1.2);
+  const plate = progress(t.ratio, t.ratio + fps * .8) * (1 - progress(t.mercator, t.mercator + fps * .8));
+  const final = progress(t.questionMercator, t.questionMercator + fps * 1.4);
+  const restore = progress(t.mercator, t.mercator + fps * 1.1);
+  const drift = linear(t.projection, t.end);
+  const cameraScale = 1 + africaFocus * .24 + detail * .95 * (1 - restore) - final * .08 + drift * .018;
+  const cameraX = -africaFocus * 140 - detail * 420 * (1 - restore) + final * 130;
+  const cameraY = africaFocus * 10 - detail * 200 * (1 - restore) + final * 55;
+  const drag = progress(t.drag, t.dragComplete);
+  const worldD = mapPath('world', morph), africaD = mapPath('africa', morph), greenlandD = mapPath('greenland', morph);
+  const mapOpacity = mapEnter * (1 - plate) * (1 - final * .68);
+  const voteOut = progress(t.voteExit, t.projection + fps * .8);
+  const globeQuestion = fade(t.question, t.familiarMap);
+  const highlight = progress(t.greenland, t.greenland + fps * .6);
+  const seats = Array.from({length: 164}, (_, i) => {
+    const rows = [20, 27, 33, 39, 45]; let row = 0, index = i;
+    while (index >= rows[row]) {index -= rows[row]; row++;}
+    const theta = Math.PI + (index / (rows[row] - 1)) * Math.PI;
+    const radius = 182 + row * 65;
+    return {x: 1200 + Math.cos(theta) * radius, y: 745 + Math.sin(theta) * radius};
+  });
+  return <AbsoluteFill>
+    <Audio src={staticFile('audio/intro.wav')}/>
+    <div className="intro-stage" style={{position: 'absolute', width: 1920, height: 1080, overflow: 'hidden', color: C.ink, transform: `scale(${width / 1920})`, transformOrigin: 'top left'}}>
+      <PaperBackground/>
+      <svg id="UnifiedVisualCanvas" width="1920" height="1080" viewBox="0 0 1920 1080" style={{position: 'absolute', inset: 0}}>
+        <defs>
+          <clipPath id="map-safe"><rect x="0" y="258" width="1920" height="738"/></clipPath>
+          <filter id="lift" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="9" stdDeviation="10" floodColor="#203d37" floodOpacity=".17"/></filter>
+          <pattern id="hatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M0 0V12" stroke={C.red} strokeWidth="3"/></pattern>
+        </defs>
+        <g opacity={1 - voteOut}>
+          {[182, 247, 312, 377, 442].map(r => <path key={r} d={`M${1200-r} 745A${r} ${r} 0 0 1 ${1200+r} 745`} fill="none" stroke="#c9d5cf" strokeWidth="1.5"/>)}
+          {seats.map((seat, i) => {
+            const reveal = progress(t.votesArrive + i * fps * .013, t.votesArrive + i * fps * .013 + fps * .6);
+            return <rect key={i} x={-9} y={-12} width="18" height="24" rx="3" fill={C.green} opacity={reveal} transform={`translate(${mix(seat.x, 1020 + (seat.x - 1200) * 1.4, voteOut)},${mix(seat.y + 45 * (1 - reveal), 585 + (seat.y - 560) * .4, voteOut)}) rotate(${voteOut * 80}) scale(${1 - voteOut * .7})`}/>;
+          })}
+          <g opacity={progress(t.dissent, t.dissent + fps * .4)}>
+            <rect x="1187" y="723" width="26" height="34" rx="3" fill={C.red}/>
+            <path d="M1200 775V818H1380" fill="none" stroke={C.red} strokeWidth="2" pathLength="1" strokeDasharray="1" strokeDashoffset={1 - progress(t.dissent + fps * .3, t.dissent + fps * 1.2)}/>
+            <text x="1400" y="830" fill={C.red} fontSize="34">美国 · 反对</text>
+          </g>
+        </g>
+        <g clipPath="url(#map-safe)"><g opacity={mapOpacity} transform={`translate(${cameraX} ${cameraY + (1 - mapEnter) * 90}) translate(960 570) scale(${cameraScale * (.88 + mapEnter * .12)}) translate(-960 -570)`}>
+          <path d={gridPath(morph)} fill="none" stroke={C.blue} strokeWidth="1.1" opacity=".25"/>
+          <path d={worldD} fill={C.land} stroke="#91aaa0" strokeWidth="1.2" strokeLinejoin="round"/>
+          <path d={africaD} fill={C.green} stroke={C.green} strokeWidth="1.6" opacity={Math.max(africaFocus, highlight)}/>
+          <path d={greenlandD} fill={drag > 0 ? 'url(#hatch)' : C.red} stroke={C.red} strokeWidth="1.6" opacity={highlight * (1 - restore)}/>
+          {drag > 0 && <path d={transportedGreenland(drag)} fill={C.red} stroke={C.white} strokeWidth="2" filter="url(#lift)" opacity={1 - restore}/>}
+          <path d="M899 417Q851 566 1072 725" fill="none" stroke={C.red} strokeWidth="2" strokeDasharray="7 9" opacity={drag * (1 - restore)}/>
+          <g opacity={africaFocus * (1 - globeQuestion)}><path d="M1100 700H1350" stroke={C.green} strokeWidth="2"/><circle cx="1100" cy="700" r="5" fill={C.green}/><text x="1370" y="713" fontSize="32" fill={C.green}>非洲</text></g>
+        </g></g>
+        <g opacity={plate} transform={`translate(0 ${36 * (1 - plate)})`}>
+          <path d={africaPlate} fill={C.green} stroke="#365f4f" strokeWidth="2"/>
+          {islandPositions.map((position, i) => {
+            const enter = progress(t.ratio + i * (t.ratioComplete - t.ratio) / 14, t.ratio + i * (t.ratioComplete - t.ratio) / 14 + fps * .38);
+            return <g key={i} transform={`translate(${position.x} ${position.y + (1 - enter) * 60}) scale(${.7 + enter * .3})`} opacity={enter}><path d={islandPlate} fill={C.red} stroke="#91463d" strokeWidth="1.3"/></g>;
+          })}
+          <text x="585" y="947" textAnchor="middle" fontSize="34" fill={C.green}>非洲</text>
+          <text x="1340" y="947" textAnchor="middle" fontSize="30" fill={C.muted}>同一面积比例尺</text>
+        </g>
+        <g opacity={globeQuestion}>
+          <path d="M1130 603C1215 473 1425 490 1480 610" fill="none" stroke={C.red} strokeWidth="2" pathLength="1" strokeDasharray="1" strokeDashoffset={1 - progress(t.question, t.question + fps * 1.2)}/>
+          <circle cx="1130" cy="603" r="7" fill={C.red}/>
+        </g>
+        <g opacity={final}>
+          <path d="M113 655H1805" stroke="#b6c6c0" strokeWidth="2"/>
+          <path d="M114 655H1804" stroke={C.blue} strokeWidth="4" pathLength="1" strokeDasharray="1" strokeDashoffset={1 - progress(t.questionMercator + fps * .7, t.responsibility)}/>
+          {[114, 1480, 1804].map((x, i) => <g key={x}><circle cx={x} cy="655" r="7" fill={C.blue}/><text x={x} y="709" fontSize="32" fill={C.muted} textAnchor={i === 0 ? 'start' : 'end'}>{['1569 年', '2018 年', '今天'][i]}</text></g>)}
+        </g>
+      </svg>
+      <Headline start={0} end={t.projection} eyebrow="联合国大会 · 地图之争" top={150} size={82}>一张地图，<br/>一场表决。</Headline>
+      <div style={{position: 'absolute', left: 112, top: 443, opacity: 1 - voteOut}}>
+        <div style={{display: 'flex', alignItems: 'baseline', gap: 22, color: C.green}}><span style={{fontSize: 150, lineHeight: 1.15, fontVariantNumeric: 'tabular-nums'}}>{Math.round(164 * progress(t.votesArrive, t.votesComplete))}</span><span style={{fontSize: 34}}>票赞成</span></div>
+        <div style={{fontSize: 50, marginTop: 14, color: C.red, opacity: progress(t.dissent, t.dissent + fps * .6)}}>1 <span style={{fontSize: 34}}>票反对</span></div>
+      </div>
+      <Headline start={t.projection} end={t.morph + fps * .5} eyebrow="沿用数百年的世界地图" size={78}>换一张，世界地图。</Headline>
+      <Headline start={t.morph + fps * .5} end={t.africa} eyebrow="2018 年诞生" size={100} color={C.blue}>平等地球</Headline>
+      <Headline start={t.africa} end={t.question} eyebrow="非洲多国的主张" size={92}>从地图，到<span style={{color: C.red}}>去殖民化</span>。</Headline>
+      <Headline start={t.question} end={t.familiarMap} eyebrow="改变的究竟是什么？" size={88}>换张地图，为何掀起波澜？</Headline>
+      <Headline start={t.familiarMap} end={t.drag} eyebrow="我们熟悉的世界地图" size={80}>看起来，竟然差不多大。</Headline>
+      <div style={{position: 'absolute', left: 470, top: 364, fontSize: 32, color: C.red, opacity: fade(t.greenland, t.drag)}}>格陵兰岛<span style={{display: 'inline-block', width: 185, height: 2, background: C.red, marginLeft: 20, verticalAlign: 'middle'}}/></div>
+      <div style={{position: 'absolute', left: 1190, top: 795, fontSize: 32, color: C.green, opacity: fade(t.comparison, t.drag)}}><span style={{display: 'inline-block', width: 80, height: 2, background: C.green, marginRight: 20, verticalAlign: 'middle'}}/>非洲</div>
+      <Headline start={t.drag} end={t.ratio + fps * .25} eyebrow="把格陵兰岛拖向非洲" size={80}>纬度变了，大小也变了。</Headline>
+      <Headline start={t.ratio} end={t.mercator + fps * .2} eyebrow="比较真实面积" size={80}>一个非洲，约 <span style={{color: C.red}}>14</span> 个格陵兰岛。</Headline>
+      <div style={{position: 'absolute', left: 900, top: 500, opacity: plate}}><KaTeXFormula math={'\\approx'} fontSize={72} color={C.muted}/></div>
+      <Headline start={t.mercator} end={t.questionMercator} eyebrow="从小熟悉的那张地图" size={108}>墨卡托投影</Headline>
+      <Headline start={t.questionMercator} end={t.responsibility} eyebrow="从 1569 年，到今天" top={254} size={105}>墨卡托，<br/>“骗”了我们多久？</Headline>
+      <Headline start={t.responsibility} end={t.end + fps} eyebrow="看见失真，也要问清用途" top={272} size={112}>这口锅，<br/><span style={{color: C.red}}>真该它来背吗？</span></Headline>
+    </div>
+  </AbsoluteFill>;
 };

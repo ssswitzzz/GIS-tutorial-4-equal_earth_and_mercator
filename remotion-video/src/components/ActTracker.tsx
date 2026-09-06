@@ -1,5 +1,9 @@
 import React from "react";
 
+const SERIF_STACK =
+  "'Source Han Serif CN SemiBold', 'Source Han Serif CN', 'Source Han Serif SC', 'Noto Serif SC', SimSun, serif";
+const MONO_STACK = "'JetBrains Mono', 'Cascadia Mono', Consolas, monospace";
+
 interface ActTrackerProps {
   currentAct: number; // 1, 2, 3, 4
 }
@@ -16,13 +20,13 @@ export const ActTracker: React.FC<ActTrackerProps> = ({ currentAct }) => {
     <div
       style={{
         position: "absolute",
-        bottom: "48px",
+        bottom: 34,
         left: 0,
         right: 0,
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        gap: "24px",
+        gap: 16,
         zIndex: 50,
       }}
     >
@@ -32,21 +36,32 @@ export const ActTracker: React.FC<ActTrackerProps> = ({ currentAct }) => {
           <div
             key={act.id}
             style={{
-              padding: "10px 32px",
-              borderRadius: "999px",
-              backgroundColor: isActive ? "#1E293B" : "rgba(255, 255, 255, 0.8)",
-              color: isActive ? "#FFFFFF" : "#64748B",
-              border: isActive ? "2px solid #1E293B" : "1.5px solid #CBD5E1",
-              fontSize: "30px",
+              padding: "6px 20px",
+              borderRadius: 999,
+              backgroundColor: isActive ? "#26332e" : "rgba(255, 252, 244, 0.85)",
+              color: isActive ? "#fcfbf7" : "#6f7368",
+              border: isActive ? "1.5px solid #26332e" : "1px solid rgba(47, 55, 49, 0.18)",
+              fontFamily: SERIF_STACK,
+              fontSize: 15,
               fontWeight: 700,
-              letterSpacing: "0.04em",
+              letterSpacing: 0.5,
               boxShadow: isActive
-                ? "0 10px 25px -5px rgba(30, 41, 59, 0.25)"
-                : "0 4px 10px rgba(0, 0, 0, 0.03)",
-              transition: "all 0.3s ease",
+                ? "0 8px 22px rgba(38, 51, 46, 0.22)"
+                : "0 2px 8px rgba(0, 0, 0, 0.03)",
               whiteSpace: "nowrap",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
             }}
           >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 999,
+                background: isActive ? "#5b806f" : "#9ba098",
+              }}
+            />
             {act.label}
           </div>
         );

@@ -1,71 +1,61 @@
 import React from "react";
-import { AbsoluteFill, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
-export const PaperBackground: React.FC<{ children?: React.ReactNode }> = ({
+export const PaperBackground: React.FC<{ tone?: "light" | "warm"; children?: React.ReactNode }> = ({
+  tone = "light",
   children,
 }) => {
   const frame = useCurrentFrame();
-
-  // Very subtle floating motion for the background grid
-  const offsetX = (frame * 0.15) % 80;
-  const offsetY = (frame * 0.1) % 80;
+  const { fps } = useVideoConfig();
+  const normalizedFrame = frame * (30 / fps);
+  const drift = interpolate(Math.sin(normalizedFrame / 90), [-1, 1], [-10, 10]);
 
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: "#FDFBF7",
-        fontFamily:
-          '"Source Han Serif CN", "Songti SC", "Noto Serif CJK SC", SimSun, serif',
-        color: "#1E293B",
-        overflow: "hidden",
+        background:
+          tone === "warm"
+            ? "linear-gradient(135deg, #f6efe1 0%, #fffaf0 44%, #e9f0e4 100%)"
+            : "linear-gradient(135deg, #f9f4e9 0%, #fcfbf5 50%, #e9efea 100%)",
       }}
     >
-      {/* Dynamic drifting grid lines */}
-      <div
-        style={{
-          position: "absolute",
-          inset: "-100px",
-          backgroundImage: `
-            linear-gradient(to right, rgba(203, 213, 225, 0.35) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(203, 213, 225, 0.35) 1px, transparent 1px)
-          `,
-          backgroundSize: "80px 80px",
-          backgroundPosition: `${offsetX}px ${offsetY}px`,
-          pointerEvents: "none",
-        }}
-      />
-
-      {/* Warm paper vignette and radial lighting */}
+      {/* 动态经纬微网格，带呼吸漂移 */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: `
-            radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.8) 0%, rgba(253, 251, 247, 0.2) 60%, rgba(241, 245, 249, 0.7) 100%)
-          `,
-          pointerEvents: "none",
+          opacity: 0.28,
+          backgroundImage:
+            "linear-gradient(rgba(37, 48, 43, 0.09) 1px, transparent 1px), linear-gradient(90deg, rgba(37, 48, 43, 0.09) 1px, transparent 1px)",
+          backgroundSize: "72px 72px",
+          transform: `translate(${drift}px, ${drift * 0.4}px)`,
         }}
       />
 
-      {/* Ambient subtle cartographic rings watermark in corner */}
+      {/* 经典地理学等高线 / 地形起伏曲线水印 */}
       <svg
+        width="1920"
+        height="1080"
+        viewBox="0 0 1920 1080"
+        style={{ position: "absolute", inset: 0, opacity: 0.16, pointerEvents: "none" }}
+      >
+        <path d="M-40 736 C 246 664, 402 810, 710 718 S 1238 470, 1970 592" fill="none" stroke="#6d7c6b" strokeWidth="2" />
+        <path d="M-30 812 C 246 734, 460 910, 748 804 S 1300 540, 1980 664" fill="none" stroke="#6d7c6b" strokeWidth="2" />
+        <path d="M114 218 C 384 120, 584 300, 858 204 S 1398 18, 1960 180" fill="none" stroke="#426b80" strokeWidth="1.5" />
+        <path d="M96 282 C 352 194, 604 372, 884 282 S 1388 96, 1940 250" fill="none" stroke="#426b80" strokeWidth="1.5" />
+        <path d="M1380 980 C 1478 810, 1656 762, 1848 826" fill="none" stroke="#a98452" strokeWidth="2" />
+      </svg>
+
+      {/* 典雅的三点径向光照氛围 */}
+      <div
         style={{
           position: "absolute",
-          right: "-120px",
-          top: "-120px",
-          width: "600px",
-          height: "600px",
-          opacity: 0.12,
+          inset: 0,
+          background:
+            "radial-gradient(circle at 18% 14%, rgba(196, 143, 72, 0.18), transparent 26%), radial-gradient(circle at 82% 22%, rgba(59, 105, 121, 0.12), transparent 24%), radial-gradient(circle at 74% 86%, rgba(93, 120, 89, 0.15), transparent 30%)",
           pointerEvents: "none",
         }}
-        viewBox="0 0 600 600"
-      >
-        <circle cx="300" cy="300" r="100" fill="none" stroke="#1E293B" strokeWidth="1.5" strokeDasharray="4 4" />
-        <circle cx="300" cy="300" r="180" fill="none" stroke="#1E293B" strokeWidth="1.5" />
-        <circle cx="300" cy="300" r="260" fill="none" stroke="#1E293B" strokeWidth="1.5" strokeDasharray="8 8" />
-        <line x1="0" y1="300" x2="600" y2="300" stroke="#1E293B" strokeWidth="1.5" />
-        <line x1="300" y1="0" x2="300" y2="600" stroke="#1E293B" strokeWidth="1.5" />
-      </svg>
+      />
 
       {children}
     </AbsoluteFill>

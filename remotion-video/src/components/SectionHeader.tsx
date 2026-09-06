@@ -1,82 +1,122 @@
 import React from "react";
 
-interface SectionHeaderProps {
-  badge: string;
-  badgeColor?: string;
-  badgeBg?: string;
-  title: string;
-  subtitle: string;
-  titleOpacity?: number;
-  titleY?: number;
-}
+const SERIF_STACK =
+  "'Source Han Serif CN SemiBold', 'Source Han Serif CN', 'Source Han Serif SC', 'Noto Serif SC', SimSun, serif";
+const MONO_STACK = "'JetBrains Mono', 'Cascadia Mono', Consolas, monospace";
 
-export const SectionHeader: React.FC<SectionHeaderProps> = ({
-  badge,
-  badgeColor = "#1D4ED8",
-  badgeBg = "#EFF6FF",
-  title,
-  subtitle,
-  titleOpacity = 1,
-  titleY = 0,
-}) => {
-  return (
+export const TopHeader: React.FC<{ currentActTitle?: string }> = ({
+  currentActTitle = "高斯绝妙定理与制图偏见",
+}) => (
+  <>
     <div
       style={{
+        position: "absolute",
+        top: 36,
+        left: 58,
+        color: "#315f6d",
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
-        textAlign: "center",
-        marginBottom: "36px",
-        opacity: titleOpacity,
-        transform: `translateY(${titleY}px)`,
+        gap: 12,
+        zIndex: 40,
       }}
     >
-      {/* Eyebrow Badge */}
-      <div
-        style={{
-          padding: "8px 26px",
-          borderRadius: "999px",
-          backgroundColor: badgeBg,
-          border: `1.5px solid ${badgeColor}33`,
-          color: badgeColor,
-          fontSize: "30px",
-          fontWeight: 700,
-          letterSpacing: "0.06em",
-          marginBottom: "16px",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {badge}
-      </div>
-
-      {/* Hero Title */}
-      <h1
-        style={{
-          fontSize: "88px",
-          fontWeight: 800,
-          color: "#0F172A",
-          margin: "0 0 16px 0",
-          letterSpacing: "-0.02em",
-          whiteSpace: "nowrap",
-          lineHeight: 1.15,
-        }}
-      >
-        {title}
-      </h1>
-
-      {/* Subtitle */}
-      <p
-        style={{
-          fontSize: "32px",
-          fontWeight: 500,
-          color: "#64748B",
-          margin: 0,
-          letterSpacing: "0.02em",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {subtitle}
-      </p>
+      <span style={{ width: 9, height: 9, borderRadius: 999, background: "#5b806f" }} />
+      <span style={{ fontFamily: MONO_STACK, fontSize: 17, letterSpacing: 1.2 }}>
+        MATHEMATICAL CARTOGRAPHY /{" "}
+      </span>
+      <span style={{ fontFamily: SERIF_STACK, fontSize: 18, fontWeight: 700, color: "#29342f" }}>
+        {currentActTitle}
+      </span>
     </div>
-  );
-};
+    <div
+      style={{
+        position: "absolute",
+        top: 36,
+        right: 58,
+        fontFamily: MONO_STACK,
+        fontSize: 14,
+        color: "#6f7368",
+        zIndex: 40,
+        letterSpacing: 1.1,
+      }}
+    >
+      DIFFERENTIAL GEOMETRY & PROJECTION
+    </div>
+  </>
+);
+
+export const SectionTitle: React.FC<{
+  eyebrow: string;
+  title: React.ReactNode;
+  subtitle: string;
+  y?: number;
+  color?: string;
+  opacity?: number;
+  underlineProgress?: number;
+}> = ({
+  eyebrow,
+  title,
+  subtitle,
+  y = 75,
+  color = "#4f745d",
+  opacity = 1,
+  underlineProgress = 1,
+}) => (
+  <div
+    style={{
+      position: "absolute",
+      top: y,
+      left: "50%",
+      transform: "translateX(-50%)",
+      width: 1500,
+      textAlign: "center",
+      zIndex: 30,
+      opacity,
+    }}
+  >
+    <div
+      style={{
+        fontFamily: MONO_STACK,
+        fontSize: 16,
+        color,
+        marginBottom: 12,
+        fontWeight: 700,
+        letterSpacing: 1.5,
+      }}
+    >
+      {eyebrow}
+    </div>
+    <div
+      style={{
+        fontSize: 56,
+        lineHeight: 1.14,
+        fontWeight: 700,
+        color: "#26332e",
+        fontFamily: SERIF_STACK,
+        letterSpacing: -0.5,
+      }}
+    >
+      {title}
+    </div>
+    <div
+      style={{
+        fontFamily: SERIF_STACK,
+        fontSize: 22,
+        color: "#6f7368",
+        marginTop: 14,
+        lineHeight: 1.4,
+      }}
+    >
+      {subtitle}
+    </div>
+    <div
+      style={{
+        width: 500 * underlineProgress,
+        height: 3.5,
+        margin: "18px auto 0",
+        background: `linear-gradient(90deg, transparent, ${color}, transparent)`,
+        borderRadius: 2,
+      }}
+    />
+  </div>
+);
