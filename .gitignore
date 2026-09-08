@@ -47,6 +47,7 @@ yarn-error.log*
 media/
 out/
 _out/
+remotion-video/out/
 *.mp4
 *.mov
 *.mkv
@@ -55,7 +56,10 @@ _out/
 # Raw / Final Voiceover & Audio Directories (Skill Hygiene)
 #1 project/
 #1视频配音/
+4 视频配音/
+*视频配音/
 bgms/
+remotion-video/public/audio/
 *.mp3
 *.wav
 *.aac
@@ -72,11 +76,15 @@ Backup/
 *.docx
 *.doc
 
-# Screenshots & Temporary Image Dumps (Skill Hygiene)
+# Screenshots & Temporary Image Dumps & Generated Previews (Skill Hygiene)
 PixPin_*.png
 *.png
 *.jpg
 *.jpeg
+cover/preview.html
+
+# Essential design & public assets whitelist
+!remotion-video/public/image.png
 
 # Operating System & Editor Files
 .DS_Store

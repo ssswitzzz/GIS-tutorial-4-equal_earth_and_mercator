@@ -2,6 +2,7 @@ import {geoArea, geoEqualEarthRaw, geoMercatorRaw, geoProjection, geoGraticule, 
 import worldRaw from '../data/cas_world_land.json';
 import africaRaw from '../data/cas_africa.json';
 import greenlandRaw from '../data/cas_greenland.json';
+import {boundedMercatorLatitude, MERCATOR_LIMIT} from '../mercator/extent';
 type Point = [number, number];
 type Rings = Point[][];
 export const world = worldRaw as Rings;
@@ -9,17 +10,18 @@ export const africa = africaRaw as Rings;
 export const greenland = greenlandRaw as Rings;
 // One source polygon has reversed winding; D3 otherwise fills the entire globe around it.
 const geometry = (rings: Rings) => ({type: 'MultiPolygon' as const, coordinates: rings.map(ring => [geoArea({type: 'Polygon', coordinates: [ring]}) > Math.PI * 2 ? [...ring].reverse() : ring])});
-export const mercator = geoMercator().scale(165).translate([1020, 745]);
-const bounded = ([lon, lat]: Point): Point => [lon, Math.max(-60, Math.min(84, lat))];
+export const mercator = geoMercator().scale(100).translate([1020, 620]);
+const bounded = ([lon, lat]: Point): Point => [lon, Math.max(-MERCATOR_LIMIT, Math.min(MERCATOR_LIMIT, lat))];
 const project = (point: Point): Point => mercator(bounded(point)) as Point;
 const round = (n: number) => Math.round(n * 100) / 100;
 const prepared = {world: geometry(world), africa: geometry(africa), greenland: geometry(greenland)};
 // D3's geographic stream clips the antimeridian and resamples curves before drawing.
 const morphProjection = (morph: number) => geoProjection((lambda, phi) => {
-  const latitude = Math.max(-Math.PI / 3, Math.min(84 * Math.PI / 180, phi));
-  const a = geoMercatorRaw(lambda, latitude), b = geoEqualEarthRaw(lambda, latitude);
-  return [a[0] * 165 * (1 - morph) + b[0] * 245 * morph, a[1] * 165 * (1 - morph) + b[1] * 245 * morph];
-}).scale(1).translate([1020, 745 - 95 * morph]).precision(.4);
+  const a = geoMercatorRaw(lambda, boundedMercatorLatitude(phi)), b = geoEqualEarthRaw(lambda, phi);
+  return [a[0] * 100 * (1 - morph) + b[0] * 245 * morph, a[1] * 100 * (1 - morph) + b[1] * 245 * morph];
+}).scale(1).translate([1020, 620 + 30 * morph]).precision(.4);
+export const mapAnchor = (name: 'africa' | 'greenland', morph: number): Point =>
+  morphProjection(morph)(name === 'africa' ? [20, 4] : [-42, 74]) as Point;
 const pathCache = new Map<string, string>();
 export const mapPath = (name: keyof typeof prepared, morph: number) => {
   const key = `${name}:${morph}`;
@@ -28,7 +30,7 @@ export const mapPath = (name: keyof typeof prepared, morph: number) => {
   if (morph === 0 || morph === 1) pathCache.set(key, path);
   return path;
 };
-const grid = geoGraticule().extent([[-180, -60], [180, 84]]).step([30, 20])();
+const grid = geoGraticule().extent([[-180, -85], [180, 85]]).step([30, 20])();
 export const gridPath = (morph: number) => geoPath(morphProjection(morph))(grid) ?? '';
 export const transportedGreenland = (progress: number) => {
   const rotation = geoRotation([42 * progress, -65 * progress, 0]);

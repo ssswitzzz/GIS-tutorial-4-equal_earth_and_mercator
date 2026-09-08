@@ -1,9 +1,11 @@
 import React, {useEffect, useState} from 'react';
-import {AbsoluteFill, Audio, cancelRender, continueRender, delayRender, Easing, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
+import {AbsoluteFill, cancelRender, continueRender, delayRender, Easing, interpolate, spring, staticFile, useVideoConfig} from 'remotion';
+import {useAnimationFrame as useCurrentFrame} from './AnimationClock';
 import {PaperBackground} from './components/PaperBackground';
 import {KaTeXFormula} from './components/KaTeXFormula';
-import {africaPlate, gridPath, islandPlate, islandPositions, mapPath, transportedGreenland} from './intro/geography';
+import {africaPlate, gridPath, islandPlate, islandPositions, mapAnchor, mapPath, transportedGreenland} from './intro/geography';
 import {getTimestamps} from './intro/timing';
+import {UnifiedVisualCanvas} from './intro/UnifiedVisualCanvas';
 import './intro/intro.css';
 
 const C = {ink: '#263e3d', muted: '#627573', green: '#477f68', blue: '#427d99', red: '#bf594c', land: '#d9e2da', white: '#fffdf8'};
@@ -12,7 +14,7 @@ const silk = Easing.bezier(.16, 1, .3, 1);
 const mix = (a: number, b: number, t: number) => a + (b - a) * t;
 const Headline: React.FC<{start: number; end: number; eyebrow?: string; children: React.ReactNode; color?: string; top?: number; size?: number}> = ({start, end, eyebrow, children, color = C.ink, top = 76, size = 88}) => {
   const frame = useCurrentFrame(); const {fps} = useVideoConfig();
-  const enter = spring({frame: frame - start, fps, config: {damping: 18, stiffness: 55}, durationInFrames: Math.round(fps * .9)});
+  const enter = start === 0 ? 1 : spring({frame: frame - start, fps, config: {damping: 18, stiffness: 55}, durationInFrames: Math.round(fps * .9)});
   const exit = interpolate(frame, [end - fps * .4, end], [0, 1], clamp);
   if (frame < start || frame >= end) return null;
   return <div style={{position: 'absolute', left: 112, top, color, opacity: Math.min(enter * 2, 1) * (1 - exit), transform: `translateY(${(1 - enter) * 44 - exit * 16}px)`, whiteSpace: 'nowrap'}}>
@@ -46,7 +48,11 @@ export const MainScene: React.FC = () => {
   const worldD = mapPath('world', morph), africaD = mapPath('africa', morph), greenlandD = mapPath('greenland', morph);
   const mapOpacity = mapEnter * (1 - plate) * (1 - final * .68);
   const voteOut = progress(t.voteExit, t.projection + fps * .8);
-  const globeQuestion = fade(t.question, t.familiarMap);
+  const contextLabel = frame < t.question ? fade(t.africa, t.question) : 0;
+  const callouts = [
+    {name: 'greenland' as const, text: '格陵兰岛', color: C.red, opacity: fade(t.greenland, t.drag), offset: -210},
+    {name: 'africa' as const, text: '非洲', color: C.green, opacity: Math.max(contextLabel, fade(t.comparison, t.drag)), offset: 260},
+  ];
   const highlight = progress(t.greenland, t.greenland + fps * .6);
   const seats = Array.from({length: 164}, (_, i) => {
     const rows = [20, 27, 33, 39, 45]; let row = 0, index = i;
@@ -56,10 +62,9 @@ export const MainScene: React.FC = () => {
     return {x: 1200 + Math.cos(theta) * radius, y: 745 + Math.sin(theta) * radius};
   });
   return <AbsoluteFill>
-    <Audio src={staticFile('audio/intro.wav')}/>
     <div className="intro-stage" style={{position: 'absolute', width: 1920, height: 1080, overflow: 'hidden', color: C.ink, transform: `scale(${width / 1920})`, transformOrigin: 'top left'}}>
       <PaperBackground/>
-      <svg id="UnifiedVisualCanvas" width="1920" height="1080" viewBox="0 0 1920 1080" style={{position: 'absolute', inset: 0}}>
+      <svg id="cartographic-layer" width="1920" height="1080" viewBox="0 0 1920 1080" style={{position: 'absolute', inset: 0}}>
         <defs>
           <clipPath id="map-safe"><rect x="0" y="258" width="1920" height="738"/></clipPath>
           <filter id="lift" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="9" stdDeviation="10" floodColor="#203d37" floodOpacity=".17"/></filter>
@@ -80,11 +85,10 @@ export const MainScene: React.FC = () => {
         <g clipPath="url(#map-safe)"><g opacity={mapOpacity} transform={`translate(${cameraX} ${cameraY + (1 - mapEnter) * 90}) translate(960 570) scale(${cameraScale * (.88 + mapEnter * .12)}) translate(-960 -570)`}>
           <path d={gridPath(morph)} fill="none" stroke={C.blue} strokeWidth="1.1" opacity=".25"/>
           <path d={worldD} fill={C.land} stroke="#91aaa0" strokeWidth="1.2" strokeLinejoin="round"/>
-          <path d={africaD} fill={C.green} stroke={C.green} strokeWidth="1.6" opacity={Math.max(africaFocus, highlight)}/>
-          <path d={greenlandD} fill={drag > 0 ? 'url(#hatch)' : C.red} stroke={C.red} strokeWidth="1.6" opacity={highlight * (1 - restore)}/>
+          <path data-land="africa" d={africaD} fill={C.green} stroke={C.green} strokeWidth="1.6" opacity={Math.max(africaFocus, highlight)}/>
+          <path data-land="greenland" d={greenlandD} fill={drag > 0 ? 'url(#hatch)' : C.red} stroke={C.red} strokeWidth="1.6" opacity={highlight * (1 - restore)}/>
           {drag > 0 && <path d={transportedGreenland(drag)} fill={C.red} stroke={C.white} strokeWidth="2" filter="url(#lift)" opacity={1 - restore}/>}
           <path d="M899 417Q851 566 1072 725" fill="none" stroke={C.red} strokeWidth="2" strokeDasharray="7 9" opacity={drag * (1 - restore)}/>
-          <g opacity={africaFocus * (1 - globeQuestion)}><path d="M1100 700H1350" stroke={C.green} strokeWidth="2"/><circle cx="1100" cy="700" r="5" fill={C.green}/><text x="1370" y="713" fontSize="32" fill={C.green}>非洲</text></g>
         </g></g>
         <g opacity={plate} transform={`translate(0 ${36 * (1 - plate)})`}>
           <path d={africaPlate} fill={C.green} stroke="#365f4f" strokeWidth="2"/>
@@ -95,16 +99,25 @@ export const MainScene: React.FC = () => {
           <text x="585" y="947" textAnchor="middle" fontSize="34" fill={C.green}>非洲</text>
           <text x="1340" y="947" textAnchor="middle" fontSize="30" fill={C.muted}>同一面积比例尺</text>
         </g>
-        <g opacity={globeQuestion}>
-          <path d="M1130 603C1215 473 1425 490 1480 610" fill="none" stroke={C.red} strokeWidth="2" pathLength="1" strokeDasharray="1" strokeDashoffset={1 - progress(t.question, t.question + fps * 1.2)}/>
-          <circle cx="1130" cy="603" r="7" fill={C.red}/>
-        </g>
+        {callouts.map(({name, text, color, opacity, offset}) => {
+          if (opacity < .0001) return null;
+          const p = mapAnchor(name, morph), scale = cameraScale * (.88 + mapEnter * .12);
+          const x = cameraX + 960 + (p[0] - 960) * scale;
+          const y = cameraY + (1 - mapEnter) * 90 + 570 + (p[1] - 570) * scale;
+          const labelX = x + offset, direction = Math.sign(offset);
+          return <g key={name} data-callout={name} opacity={opacity * mapOpacity}>
+            <path d={`M${x + direction * 8} ${y}H${labelX - direction * 18}`} fill="none" stroke={color} strokeWidth="2"/>
+            <circle cx={x} cy={y} r="5" fill={color}/>
+            <text x={labelX} y={y} dominantBaseline="central" textAnchor={offset < 0 ? 'end' : 'start'} fontSize="32" fill={color}>{text}</text>
+          </g>;
+        })}
         <g opacity={final}>
           <path d="M113 655H1805" stroke="#b6c6c0" strokeWidth="2"/>
           <path d="M114 655H1804" stroke={C.blue} strokeWidth="4" pathLength="1" strokeDasharray="1" strokeDashoffset={1 - progress(t.questionMercator + fps * .7, t.responsibility)}/>
           {[114, 1480, 1804].map((x, i) => <g key={x}><circle cx={x} cy="655" r="7" fill={C.blue}/><text x={x} y="709" fontSize="32" fill={C.muted} textAnchor={i === 0 ? 'start' : 'end'}>{['1569 年', '2018 年', '今天'][i]}</text></g>)}
         </g>
       </svg>
+      <UnifiedVisualCanvas opacity={final} unfold={final}/>
       <Headline start={0} end={t.projection} eyebrow="联合国大会 · 地图之争" top={150} size={82}>一张地图，<br/>一场表决。</Headline>
       <div style={{position: 'absolute', left: 112, top: 443, opacity: 1 - voteOut}}>
         <div style={{display: 'flex', alignItems: 'baseline', gap: 22, color: C.green}}><span style={{fontSize: 150, lineHeight: 1.15, fontVariantNumeric: 'tabular-nums'}}>{Math.round(164 * progress(t.votesArrive, t.votesComplete))}</span><span style={{fontSize: 34}}>票赞成</span></div>
@@ -115,8 +128,6 @@ export const MainScene: React.FC = () => {
       <Headline start={t.africa} end={t.question} eyebrow="非洲多国的主张" size={92}>从地图，到<span style={{color: C.red}}>去殖民化</span>。</Headline>
       <Headline start={t.question} end={t.familiarMap} eyebrow="改变的究竟是什么？" size={88}>换张地图，为何掀起波澜？</Headline>
       <Headline start={t.familiarMap} end={t.drag} eyebrow="我们熟悉的世界地图" size={80}>看起来，竟然差不多大。</Headline>
-      <div style={{position: 'absolute', left: 470, top: 364, fontSize: 32, color: C.red, opacity: fade(t.greenland, t.drag)}}>格陵兰岛<span style={{display: 'inline-block', width: 185, height: 2, background: C.red, marginLeft: 20, verticalAlign: 'middle'}}/></div>
-      <div style={{position: 'absolute', left: 1190, top: 795, fontSize: 32, color: C.green, opacity: fade(t.comparison, t.drag)}}><span style={{display: 'inline-block', width: 80, height: 2, background: C.green, marginRight: 20, verticalAlign: 'middle'}}/>非洲</div>
       <Headline start={t.drag} end={t.ratio + fps * .25} eyebrow="把格陵兰岛拖向非洲" size={80}>纬度变了，大小也变了。</Headline>
       <Headline start={t.ratio} end={t.mercator + fps * .2} eyebrow="比较真实面积" size={80}>一个非洲，约 <span style={{color: C.red}}>14</span> 个格陵兰岛。</Headline>
       <div style={{position: 'absolute', left: 900, top: 500, opacity: plate}}><KaTeXFormula math={'\\approx'} fontSize={72} color={C.muted}/></div>
